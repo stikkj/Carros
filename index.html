@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Frota - Multi-Veículos & Histórico na Nuvem</title>
+    <!-- Firebase SDK v9 Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --whatsapp: #25D366;
+            --bg: #f8fafc;
+            --card: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: #334155;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--primary);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        h1 { margin: 0; font-size: 1.8rem; }
+
+        .status-nuvem {
+            font-size: 0.85rem;
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .nuvem-off { background: #cbd5e1; color: #475569; }
+        .nuvem-on { background: #dcfce7; color: #15803d; }
+
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 5px solid var(--accent);
+        }
+
+        .card.danger { border-left-color: var(--danger); }
+        .card.warning { border-left-color: var(--warning); }
+        .card.success { border-left-color: var(--success); }
+
+        .card h3 { margin-top: 0; font-size: 0.95rem; color: #64748b; }
+        .card .value { font-size: 1.8rem; font-weight: bold; margin: 10px 0; }
+
+        .section-box {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 12px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        th { background-color: #f1f5f9; color: #475569; font-weight: 600; }
+
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .badge-danger { background-color: #fee2e2; color: var(--danger); }
+        .badge-warning { background-color: #fef9c3; color: var(--warning); }
+        .badge-success { background-color: #dcfce7; color: var(--success); }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover { background: #1d4ed8; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #15803d; }
+        .btn-warning { background: var(--warning); }
+        .btn-warning:hover { background: #a16207; }
+        .btn-whatsapp { background: var(--whatsapp); color: white; }
+        .btn-whatsapp:hover { background: #1ebd56; }
+        .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 9px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: monospace;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .modal h3 { margin-top: 0; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1>Gestão de Frota & Registros na Nuvem</h1>
+            <small id="status-nuvem" class="status-nuvem nuvem-off">Aguardando Conexão...</small>
+        </div>
+        <div class="header-btns">
+            <button class="btn btn-warning" onclick="abrirNovoCarroModal()">➕ Cadastrar Carro</button>
+            <button class="btn btn-success" onclick="salvarBackupNuvem()">☁️ Backup Completo</button>
+            <button class="btn" onclick="gerarRelatorioTXT()">📄 Gerar Relatório Semanal</button>
+        </div>
+    </header>
+
+    <!-- Configuração da Chave Secreta para Sincronizar em Tempo Real -->
+    <div class="section-box" style="background: #eff6ff; border: 1px solid #bfdbfe;">
+        <h2 style="color: #1e40af; border-bottom-color: #dbeafe;">🔑 Sincronização em Tempo Real (Celular + Computador)</h2>
+        <p style="font-size: 0.9rem; color: #1e3a8a; margin-bottom: 12px;">
+            Digite uma <strong>Chave do Seu Banco / Nome de Conta</strong>. Coloque a mesma chave no celular e no computador para ver a frota e os registros atualizarem juntos!
+        </p>
+        <div class="form-row">
+            <div class="form-group" style="max-width: 400px;">
+                <input type="text" id="chave-sinc" placeholder="Ex: minha_frota_123" value="">
+            </div>
+            <button class="btn btn-primary" onclick="conectarNouvem()">Conectar na Nuvem</button>
+        </div>
+    </div>
+
+    <!-- Indicadores -->
+    <div class="grid-cards">
+        <div class="card">
+            <h3>Total de Veículos</h3>
+            <div class="value" id="total-veiculos">0</div>
+        </div>
+        <div class="card danger">
+            <h3>Troca Vencida</h3>
+            <div class="value" id="oleo-vencido">0</div>
+        </div>
+        <div class="card warning">
+            <h3>Alerta Óleo (&le; 1.000 km)</h3>
+            <div class="value" id="oleo-alerta">0</div>
+        </div>
+        <div class="card success">
+            <h3>Óleo em Dia</h3>
+            <div class="value" id="oleo-ok">0</div>
+        </div>
+    </div>
+
+    <!-- Tabela Principal da Frota (Todos os Carros) -->
+    <div class="section-box">
+        <h2>🚗 Todos os Carros da Frota (Com Edição Direta)</h2>
+        <table id="tabela-frota">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Modelo</th>
+                    <th>Cor</th>
+                    <th>Última Troca (KM)</th>
+                    <th>KM Atual</th>
+                    <th>Próxima Troca (KM)</th>
+                    <th>Status Óleo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Lançamento de Manutenções da Semana -->
+    <div class="section-box">
+        <h2>📝 Registrar Atividade / Atualização da Semana</h2>
+        <form id="form-atividade" onsubmit="registrarAtividade(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Selecione o Veículo</label>
+                    <select id="select-placa" required></select>
+                </div>
+                <div class="form-group">
+                    <label>KM Atual do Odômetro</label>
+                    <input type="number" id="input-km" placeholder="Ex: 125000" required>
+                </div>
+                <div class="form-group">
+                    <label>Custo do Serviço / Peça (R$)</label>
+                    <input type="number" step="0.01" id="input-custo" placeholder="0,00">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Descrição da Manutenção Realizada</label>
+                    <input type="text" id="input-servico" placeholder="Ex: Troca de óleo, filtro e alinhamento" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Registrar Atividade Semanal</button>
+        </form>
+    </div>
+
+    <!-- Área do Relatório da Semana Atual -->
+    <div class="section-box" id="box-relatorio" style="display: none;">
+        <h2>📄 Relatório da Semana Atual</h2>
+        <textarea id="texto-relatorio" readonly></textarea>
+        <br><br>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-whatsapp" onclick="enviarWhatsApp()">📲 Enviar no WhatsApp</button>
+            <button class="btn btn-success" onclick="fazerDownloadTXT()">📥 Baixar Arquivo .TXT</button>
+            <button class="btn btn-warning" onclick="fecharSemanaEGuardar()">🔒 Fechar Semana & Arquivar</button>
+        </div>
+    </div>
+
+    <!-- Histórico de Registros e Semanas Antigas -->
+    <div class="section-box">
+        <h2>📜 Histórico de Semanas Anteriores (Relatórios Fechados)</h2>
+        <table id="tabela-historico">
+            <thead>
+                <tr>
+                    <th>Data do Fechamento</th>
+                    <th>Título / Semana</th>
+                    <th>Total Atividades</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Edição de Carro -->
+<div class="modal-overlay" id="modal-editar">
+    <div class="modal">
+        <h3 id="modal-titulo">Editar Informações do Veículo</h3>
+        <input type="hidden" id="edit-index">
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label>Placa do Veículo</label>
+            <input type="text" id="edit-placa" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label>Modelo do Carro</label>
+            <input type="text" id="edit-modelo" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label>Cor do Carro</label>
+            <input type="text" id="edit-cor" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label>KM da Última Troca de Óleo</label>
+            <input type="number" id="edit-km-oleo" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label>KM Atual Registrado</label>
+            <input type="number" id="edit-km-atual" required>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-warning" onclick="fecharModal()">Cancelar</button>
+            <button class="btn btn-success" onclick="salvarEdicaoCarro()">Salvar Alterações</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Inicializa Firebase com Realtime Database
+    const firebaseConfig = { databaseURL: "https://controle-km-padrao-default-rtdb.firebaseio.com" };
+    let db = null;
+    let chaveAtual = localStorage.getItem('chave_sincronizacao') || 'minha_frota_principal';
+
+    // Lista de carros base inicial da sua planilha
+    const dadosPlanilha = [
+        { placa: "ETA6E72", modelo: "Gol", cor: "Branco", kmUltimaTroca: 115361, kmAtual: 115361, intervalo: 10000 },
+        { placa: "FCK3905", modelo: "Ford Ka", cor: "Marrom", kmUltimaTroca: 168355, kmAtual: 168355, intervalo: 10000 },
+        { placa: "QNI6D70", modelo: "HB20s", cor: "Branco", kmUltimaTroca: 251224, kmAtual: 251224, intervalo: 10000 },
+        { placa: "SWB7E61", modelo: "Kwid", cor: "Prata", kmUltimaTroca: 61707, kmAtual: 61707, intervalo: 10000 },
+        { placa: "QOZ2G14", modelo: "Logan", cor: "Preto", kmUltimaTroca: 229850, kmAtual: 229850, intervalo: 10000 },
+        { placa: "SIR7I64", modelo: "Mobi", cor: "Branco", kmUltimaTroca: 79032, kmAtual: 79032, intervalo: 10000 },
+        { placa: "GFX4B27", modelo: "Onix Joy", cor: "Branco", kmUltimaTroca: 308253, kmAtual: 308253, intervalo: 10000 },
+        { placa: "QPG9I50", modelo: "Onix Joy", cor: "Prata", kmUltimaTroca: 173373, kmAtual: 173373, intervalo: 10000 },
+        { placa: "IZO2A61", modelo: "Onix LTZ", cor: "Chumbo", kmUltimaTroca: 67990, kmAtual: 67990, intervalo: 10000 },
+        { placa: "GEA8D66", modelo: "T-Cross", cor: "Prata", kmUltimaTroca: 124093, kmAtual: 124093, intervalo: 10000 },
+        { placa: "PZQ6I04", modelo: "Uno", cor: "Vermelho", kmUltimaTroca: 237238, kmAtual: 237238, intervalo: 10000 },
+        { placa: "RMW6F31", modelo: "Uno", cor: "Grafite", kmUltimaTroca: 125500, kmAtual: 134800, intervalo: 10000 },
+        { placa: "FTX7C44", modelo: "Onix", cor: "Preto", kmUltimaTroca: 333561, kmAtual: 333561, intervalo: 10000 },
+        { placa: "FNV5J37", modelo: "Gol", cor: "Cinza", kmUltimaTroca: 333929, kmAtual: 333929, intervalo: 10000 }
+    ];
+
+    let frota = JSON.parse(localStorage.getItem('frota_nuvem')) || dadosPlanilha;
+    let atividadesSemana = JSON.parse(localStorage.getItem('atividades_nuvem')) || [];
+    let historicoSemanas = JSON.parse(localStorage.getItem('historico_semanas_nuvem')) || [];
+
+    try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+    } catch(e) { console.error("Firebase err", e); }
+
+    document.getElementById('chave-sinc').value = chaveAtual;
+
+    function conectarNouvem() {
+        const input = document.getElementById('chave-sinc').value.trim();
+        if(!input) { alert("Digite a chave de sincronização!"); return; }
+        
+        chaveAtual = input;
+        localStorage.setItem('chave_sincronizacao', chaveAtual);
+
+        const st = document.getElementById('status-nuvem');
+        st.className = "status-nuvem nuvem-on";
+        st.textContent = "🟢 Conectado na Nuvem (" + chaveAtual + ")";
+
+        // Escuta atualizações da frota e histórico na nuvem em tempo real
+        if(db) {
+            db.ref('frota_completa/' + chaveAtual).on('value', (snapshot) => {
+                const dados = snapshot.val();
+                if(dados) {
+                    if(dados.frota) frota = dados.frota;
+                    if(dados.atividadesSemana) atividadesSemana = dados.atividadesSemana;
+                    if(dados.historicoSemanas) historicoSemanas = dados.historicoSemanas;
+                    renderizarTabela();
+                } else {
+                    // Primeira vez enviando frota para esta chave
+                    sincronizarComBanco();
+                }
+            });
+        }
+    }
+
+    function sincronizarComBanco() {
+        localStorage.setItem('frota_nuvem', JSON.stringify(frota));
+        localStorage.setItem('atividades_nuvem', JSON.stringify(atividadesSemana));
+        localStorage.setItem('historico_semanas_nuvem', JSON.stringify(historicoSemanas));
+
+        if(db && chaveAtual) {
+            db.ref('frota_completa/' + chaveAtual).set({
+                frota: frota,
+                atividadesSemana: atividadesSemana,
+                historicoSemanas: historicoSemanas
+            });
+        }
+    }
+
+    function renderizarTabela() {
+        const tbody = document.querySelector("#tabela-frota tbody");
+        const selectPlaca = document.querySelector("#select-placa");
+        tbody.innerHTML = "";
+        selectPlaca.innerHTML = "";
+
+        let countVencido = 0;
+        let countAlerta = 0;
+        let countOk = 0;
+
+        frota.forEach((carro, index) => {
+            const proxTroca = carro.kmUltimaTroca + (carro.intervalo || 10000);
+            const faltam = proxTroca - carro.kmAtual;
+            
+            let badgeClass = "badge-success";
+            let statusTexto = "OK";
+
+            if (faltam <= 0) {
+                badgeClass = "badge-danger";
+                statusTexto = "🚨 VENCIDO";
+                countVencido++;
+            } else if (faltam <= 1000) {
+                badgeClass = "badge-warning";
+                statusTexto = "⚠️ ALERTA (<=1k)";
+                countAlerta++;
+            } else {
+                countOk++;
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><strong>${carro.placa}</strong></td>
+                <td>${carro.modelo}</td>
+                <td>${carro.cor}</td>
+                <td>${carro.kmUltimaTroca.toLocaleString()} km</td>
+                <td>${carro.kmAtual.toLocaleString()} km</td>
+                <td>${proxTroca.toLocaleString()} km</td>
+                <td><span class="badge ${badgeClass}">${statusTexto}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="editarCarro(${index})">✏️ Editar</button>
+                    <button class="btn btn-sm" style="background:#ef4444;" onclick="excluirCarro(${index})">🗑️ Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            const option = document.createElement("option");
+            option.value = carro.placa;
+            option.textContent = `${carro.placa} - ${carro.modelo} (${carro.cor})`;
+            selectPlaca.appendChild(option);
+        });
+
+        document.getElementById("total-veiculos").textContent = frota.length;
+        document.getElementById("oleo-vencido").textContent = countVencido;
+        document.getElementById("oleo-alerta").textContent = countAlerta;
+        document.getElementById("oleo-ok").textContent = countOk;
+
+        renderizarHistorico();
+    }
+
+    function renderizarHistorico() {
+        const tbody = document.querySelector("#tabela-historico tbody");
+        tbody.innerHTML = "";
+
+        if (!historicoSemanas || historicoSemanas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Nenhum relatório arquivado anteriormente.</td></tr>`;
+            return;
+        }
+
+        historicoSemanas.forEach((sem, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${sem.dataFechamento}</td>
+                <td><strong>${sem.titulo}</strong></td>
+                <td>${sem.totalAtividades} atividade(s)</td>
+                <td>
+                    <button class="btn btn-sm" onclick="rebaixarRelatorioHistorico(${idx})">📥 Baixar .TXT</button>
+                    <button class="btn btn-sm btn-whatsapp" onclick="enviarWhatsAppHistorico(${idx})">📲 WhatsApp</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function editarCarro(index) {
+        const carro = frota[index];
+        document.getElementById("modal-titulo").textContent = "Editar: " + carro.placa;
+        document.getElementById("edit-index").value = index;
+        document.getElementById("edit-placa").value = carro.placa;
+        document.getElementById("edit-modelo").value = carro.modelo;
+        document.getElementById("edit-cor").value = carro.cor;
+        document.getElementById("edit-km-oleo").value = carro.kmUltimaTroca;
+        document.getElementById("edit-km-atual").value = carro.kmAtual;
+        document.getElementById("modal-editar").style.display = "flex";
+    }
+
+    function abrirNovoCarroModal() {
+        document.getElementById("modal-titulo").textContent = "Cadastrar Novo Veículo";
+        document.getElementById("edit-index").value = -1;
+        document.getElementById("edit-placa").value = "";
+        document.getElementById("edit-modelo").value = "";
+        document.getElementById("edit-cor").value = "";
+        document.getElementById("edit-km-oleo").value = 0;
+        document.getElementById("edit-km-atual").value = 0;
+        document.getElementById("modal-editar").style.display = "flex";
+    }
+
+    function fecharModal() {
+        document.getElementById("modal-editar").style.display = "none";
+    }
+
+    function salvarEdicaoCarro() {
+        const index = parseInt(document.getElementById("edit-index").value);
+        const placa = document.getElementById("edit-placa").value.toUpperCase().trim();
+        const modelo = document.getElementById("edit-modelo").value.trim();
+        const cor = document.getElementById("edit-cor").value.trim();
+        const kmOleo = parseInt(document.getElementById("edit-km-oleo").value);
+        const kmAtual = parseInt(document.getElementById("edit-km-atual").value);
+
+        if (!placa || !modelo || !cor) { alert("Preencha todos os campos!"); return; }
+
+        if (index >= 0) {
+            frota[index] = { ...frota[index], placa, modelo, cor, kmUltimaTroca: kmOleo, kmAtual: kmAtual };
+        } else {
+            frota.push({ placa, modelo, cor, kmUltimaTroca: kmOleo, kmAtual: kmAtual, intervalo: 10000 });
+        }
+
+        fecharModal();
+        sincronizarComBanco();
+        renderizarTabela();
+    }
+
+    function excluirCarro(index) {
+        if(confirm("Deseja mesmo remover este carro da frota?")) {
+            frota.splice(index, 1);
+            sincronizarComBanco();
+            renderizarTabela();
+        }
+    }
+
+    function registrarAtividade(e) {
+        e.preventDefault();
+        const placa = document.getElementById("select-placa").value;
+        const novoKm = parseInt(document.getElementById("input-km").value);
+        const custo = parseFloat(document.getElementById("input-custo").value) || 0;
+        const servico = document.getElementById("input-servico").value;
+
+        const carro = frota.find(c => c.placa === placa);
+        if (carro) {
+            carro.kmAtual = novoKm;
+            if (servico.toLowerCase().includes("óleo") || servico.toLowerCase().includes("oleo")) {
+                carro.kmUltimaTroca = novoKm;
+            }
+        }
+
+        atividadesSemana.push({ placa, modelo: carro.modelo, novoKm, custo, servico, data: new Date().toLocaleDateString() });
+
+        alert("Atividade registrada na nuvem!");
+        document.getElementById("form-atividade").reset();
+        sincronizarComBanco();
+        renderizarTabela();
+    }
+
+    function construirTextoRelatorio() {
+        let dataHoje = new Date().toLocaleDateString('pt-BR');
+        let relatorio = `================================================================================\n`;
+        relatorio += `           SISTEMA DE GESTÃO DE FROTA - RELATÓRIO SEMANAL (.TXT)\n`;
+        relatorio += `Data do Relatório: ${dataHoje}\n`;
+        relatorio += `================================================================================\n\n`;
+
+        relatorio += `1. ATIVIDADES E MANUTENÇÕES REGISTRADAS NA SEMANA:\n`;
+        relatorio += `--------------------------------------------------------------------------------\n`;
+        if (!atividadesSemana || atividadesSemana.length === 0) {
+            relatorio += `Nenhuma atividade registrada na semana corrente.\n`;
+        } else {
+            atividadesSemana.forEach(act => {
+                relatorio += `• Placa: ${act.placa} (${act.modelo}) | Data: ${act.data}\n  KM Odômetro: ${act.novoKm.toLocaleString()} km\n  Serviço: ${act.servico}\n  Custo: R$ ${act.custo.toFixed(2)}\n\n`;
+            });
+        }
+
+        relatorio += `\n2. PAINEL DE ALERTAS DE TROCA DE ÓLEO (FALTANDO <= 1.000 KM OU VENCIDOS):\n`;
+        relatorio += `--------------------------------------------------------------------------------\n`;
+        
+        let alertas = 0;
+        frota.forEach(c => {
+            const prox = c.kmUltimaTroca + (c.intervalo || 10000);
+            const faltam = prox - c.kmAtual;
+            if (faltam <= 1000) {
+                alertas++;
+                let status = faltam <= 0 ? "[🚨 VENCIDO]" : "[⚠️ ATENÇÃO]";
+                relatorio += `${status} Placa: ${c.placa} - ${c.modelo} (${c.cor})\n  KM Atual: ${c.kmAtual.toLocaleString()} km | Próx. Troca: ${prox.toLocaleString()} km (Faltam: ${faltam.toLocaleString()} km)\n\n`;
+            }
+        });
+
+        if (alertas === 0) {
+            relatorio += `Excelente! Todos os veículos estão com a troca de óleo em dia.\n`;
+        }
+
+        return relatorio;
+    }
+
+    function gerarRelatorioTXT() {
+        const box = document.getElementById("box-relatorio");
+        const textarea = document.getElementById("texto-relatorio");
+        box.style.display = "block";
+        textarea.value = construirTextoRelatorio();
+        textarea.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function fazerDownloadTXT() {
+        const texto = document.getElementById("texto-relatorio").value || construirTextoRelatorio();
+        const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Relatorio_Semanal_Frota_${new Date().toISOString().slice(0,10)}.txt`;
+        link.click();
+    }
+
+    function enviarWhatsApp() {
+        const texto = document.getElementById("texto-relatorio").value || construirTextoRelatorio();
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+
+    function fecharSemanaEGuardar() {
+        const textoRelatorio = document.getElementById("texto-relatorio").value || construirTextoRelatorio();
+        const dataHoje = new Date().toLocaleDateString('pt-BR');
+
+        if(!historicoSemanas) historicoSemanas = [];
+
+        historicoSemanas.unshift({
+            id: Date.now(),
+            dataFechamento: dataHoje,
+            titulo: `Relatório Semanal (${dataHoje})`,
+            texto: textoRelatorio,
+            totalAtividades: atividadesSemana.length
+        });
+
+        atividadesSemana = [];
+        document.getElementById("box-relatorio").style.display = "none";
+        sincronizarComBanco();
+        renderizarTabela();
+        alert("Semana fechada e arquivada com sucesso!");
+    }
+
+    function rebaixarRelatorioHistorico(idx) {
+        const sem = historicoSemanas[idx];
+        const blob = new Blob([sem.texto], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Relatorio_${sem.dataFechamento.replace(/\//g, '-')}.txt`;
+        link.click();
+    }
+
+    function enviarWhatsAppHistorico(idx) {
+        const sem = historicoSemanas[idx];
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(sem.texto)}`, '_blank');
+    }
+
+    function salvarBackupNuvem() {
+        sincronizarComBanco();
+        const dataBackup = { data: new Date().toISOString(), frota, atividadesSemana, historicoSemanas };
+        const blob = new Blob([JSON.stringify(dataBackup, null, 2)], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Backup_Frota_${new Date().toISOString().slice(0,10)}.json`;
+        link.click();
+        alert("Backup completo baixado!");
+    }
+
+    // Conectar automaticamente na inicialização
+    conectarNouvem();
+</script>
+
+</body>
+</html>
